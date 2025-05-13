@@ -3,26 +3,34 @@
 <head>
   <title>Tic Tac Toe</title>
   <style>
-    #board { display: grid; grid-template-columns: repeat(3, 100px); width: 300px; }
+    #board { display: grid; grid-template-columns: repeat(3, 100px); width: 300px; margin-top: 20px; }
     .cell { width: 100px; height: 100px; border: 1px solid #000; font-size: 2em; display: flex; align-items: center; justify-content: center; cursor: pointer; }
   </style>
 </head>
 <body>
   <h2>Tic Tac Toe</h2>
-  <button onclick="startGame()">Start Game</button>
+  <button onclick="startGame('player')">Play with another player</button>
+  <button onclick="startGame('computer')">Play against computer</button>
   <div id="status"></div>
   <div id="board"></div>
 
   <script>
     let gameId = null;
-    let player = 'X';
+    let currentPlayer = 'X';
+    let mode = 'player';
 
-    async function startGame() {
-      const res = await fetch('http://localhost:3002/start', { method: 'POST' });
+    async function startGame(selectedMode) {
+      mode = selectedMode;
+      const res = await fetch('http://localhost:3002/start', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mode: selectedMode })
+      });
       const data = await res.json();
       gameId = data.gameId;
+      currentPlayer = 'X';
       drawBoard(data.board);
-      document.getElementById('status').textContent = `Your turn: ${player}`;
+      document.getElementById('status').textContent = `Your turn: ${currentPlayer}`;
     }
 
     function drawBoard(board) {
@@ -41,7 +49,7 @@
       const res = await fetch('http://localhost:3002/move', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ gameId, index, player })
+        body: JSON.stringify({ gameId, index, player: currentPlayer })
       });
 
       const data = await res.json();
@@ -51,11 +59,12 @@
       }
 
       drawBoard(data.board);
+
       if (data.winner) {
-        document.getElementById('status').textContent = data.winner === 'Draw' ? 'It\'s a Draw!' : `Winner: ${data.winner}`;
+        document.getElementById('status').textContent = data.winner === 'Draw' ? 'It\'s a draw!' : `Winner: ${data.winner}`;
       } else {
-        document.getElementById('status').textContent = `Next turn: ${data.nextPlayer}`;
-        player = data.nextPlayer;
+        currentPlayer = data.nextPlayer;
+        document.getElementById('status').textContent = `Next turn: ${currentPlayer}`;
       }
     }
   </script>
