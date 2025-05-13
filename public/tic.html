@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Tic Tac Toe</title>
+  <style>
+    #board { display: grid; grid-template-columns: repeat(3, 100px); width: 300px; }
+    .cell { width: 100px; height: 100px; border: 1px solid #000; font-size: 2em; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+  </style>
+</head>
+<body>
+  <h2>Tic Tac Toe</h2>
+  <button onclick="startGame()">Start Game</button>
+  <div id="status"></div>
+  <div id="board"></div>
+
+  <script>
+    let gameId = null;
+    let player = 'X';
+
+    async function startGame() {
+      const res = await fetch('http://localhost:3002/start', { method: 'POST' });
+      const data = await res.json();
+      gameId = data.gameId;
+      drawBoard(data.board);
+      document.getElementById('status').textContent = `Your turn: ${player}`;
+    }
+
+    function drawBoard(board) {
+      const boardDiv = document.getElementById('board');
+      boardDiv.innerHTML = '';
+      board.forEach((cell, i) => {
+        const div = document.createElement('div');
+        div.className = 'cell';
+        div.textContent = cell || '';
+        div.onclick = () => makeMove(i);
+        boardDiv.appendChild(div);
+      });
+    }
+
+    async function makeMove(index) {
+      const res = await fetch('http://localhost:3002/move', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ gameId, index, player })
+      });
+
+      const data = await res.json();
+      if (data.error) {
+        alert(data.error);
+        return;
+      }
+
+      drawBoard(data.board);
+      if (data.winner) {
+        document.getElementById('status').textContent = data.winner === 'Draw' ? 'It\'s a Draw!' : `Winner: ${data.winner}`;
+      } else {
+        document.getElementById('status').textContent = `Next turn: ${data.nextPlayer}`;
+        player = data.nextPlayer;
+      }
+    }
+  </script>
+</body>
+</html>
