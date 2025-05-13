@@ -1,28 +1,26 @@
+const path = require('path');
 const express = require('express');
 const cors = require('cors');
-const path = require('path');
-
 const app = express();
+
 app.use(cors());
 app.use(express.json());
+app.use(express.static(path.join(__dirname, 'public')));  // 'public' is the directory where your HTML and assets are
 
-// Serve static files (HTML, CSS, JS)
-app.use(express.static(path.join(__dirname, 'public')));
+let games = {};
 
-let games = {};  // In-memory storage for simplicity
-
-// Start a new game
 app.post('/start', (req, res) => {
+  const mode = req.body.mode || 'player';
   const id = Date.now().toString();
   games[id] = {
     board: Array(9).fill(null),
     currentPlayer: 'X',
-    winner: null
+    winner: null,
+    gameMode: mode
   };
   res.json({ gameId: id, board: games[id].board });
 });
 
-// Make a move
 app.post('/move', (req, res) => {
   const { gameId, index, player } = req.body;
   const game = games[gameId];
@@ -35,21 +33,69 @@ app.post('/move', (req, res) => {
   game.winner = checkWinner(game.board);
   game.currentPlayer = player === 'X' ? 'O' : 'X';
 
+  // Computer move if applicable
+  if (game.gameMode === 'computer' && !game.winner && game.currentPlayer === 'O') {
+    const compMove = getBestMove(game.board, 'O');
+    game.board[compMove] = 'O';
+    game.winner = checkWinner(game.board);
+    game.currentPlayer = 'X';
+  }
+
   res.json({ board: game.board, winner: game.winner, nextPlayer: game.currentPlayer });
 });
 
 function checkWinner(board) {
   const lines = [
-    [0,1,2], [3,4,5], [6,7,8], // rows
-    [0,3,6], [1,4,7], [2,5,8], // cols
-    [0,4,8], [2,4,6]           // diags
+    [0,1,2], [3,4,5], [6,7,8],
+    [0,3,6], [1,4,7], [2,5,8],
+    [0,4,8], [2,4,6]
   ];
   for (let [a,b,c] of lines) {
-    if (board[a] && board[a] === board[b] && board[b] === board[c]) {
+    if (board[a] && board[a] === board[b] && board[a] === board[c]) {
       return board[a];
     }
   }
   return board.includes(null) ? null : 'Draw';
+}
+
+function getBestMove(board, player) {
+  const opponent = player === 'X' ? 'O' : 'X';
+
+  // 1. Win if possible
+  for (let i = 0; i < 9; i++) {
+    if (!board[i]) {
+      board[i] = player;
+      if (checkWinner(board) === player) {
+        board[i] = null;
+        return i;
+      }
+      board[i] = null;
+    }
+  }
+
+  // 2. Block opponent win
+  for (let i = 0; i < 9; i++) {
+    if (!board[i]) {
+      board[i] = opponent;
+      if (checkWinner(board) === opponent) {
+        board[i] = null;
+        return i;
+      }
+      board[i] = null;
+    }
+  }
+
+  // 3. Pick center
+  if (!board[4]) return 4;
+
+  // 4. Pick a corner
+  const corners = [0, 2, 6, 8];
+  for (let i of corners) {
+    if (!board[i]) return i;
+  }
+
+  // 5. Pick any free space
+  return board.findIndex(cell => cell === null);
 }
 
 const PORT = 3002;
